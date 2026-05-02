@@ -1,161 +1,231 @@
-# An Optimization Learning Simulation Framework for Cascade Reservoir Scheduling
+# An Optimization-Learning-Simulation Framework for Cascade Reservoir Scheduling
 
 ## Project Overview
 
-This project presents a comprehensive optimization learning simulation framework for cascade reservoir scheduling, integrating advanced machine learning techniques with physical constraints to achieve optimal water resource management. The framework combines Long Short-Term Memory (LSTM) neural networks with Deep Q-Network (DQN) reinforcement learning for dynamic weight adjustment, alongside traditional time series forecasting methods such as SARIMA models.
+This repository contains the core algorithm files for an optimization-learning-simulation framework for cascade reservoir scheduling. The framework is organized around three complementary components:
 
-## Key Features
+- **Learning**: a PyTorch LSTM predictor with DQN-based adaptive loss weighting and physical-constraint loss terms.
+- **Optimization**: a MATLAB cascade-reservoir scheduling problem definition for multi-objective reservoir operation.
+- **Simulation**: MATLAB SARIMA utilities for hydrological time-series forecasting and comparison.
 
-- **Hybrid Learning Architecture**: Integration of LSTM neural networks with DQN for adaptive loss function weighting
-- **Physical Constraint Integration**: Incorporation of reservoir operation constraints including water balance, discharge boundaries, and operational cycles
-- **Multi-Objective Optimization**: Simultaneous optimization of power generation, flood control, and environmental objectives
-- **Time Series Forecasting**: Implementation of SARIMA models for comparative analysis
-- **Real-time Inference**: Efficient prediction API for operational deployment
+The current public repository provides the main algorithmic scripts only. Engineering datasets, trained model artifacts, and some local framework dependencies are not included because of data security and engineering-parameter confidentiality.
 
-## Technical Architecture
+## Repository Structure
 
-### Core Components
-
-1. **LSTM Prediction Model** (`LSTMPredictor`)
-   - Multi-layer LSTM architecture with dropout regularization
-   - Sequence-to-sequence prediction for reservoir outflow forecasting
-   - Adaptive hidden state management
-
-2. **DQN Agent** (`DQNAgent`)
-   - Dynamic weight adjustment for loss function components
-   - Experience replay mechanism for stable learning
-   - ε-greedy exploration strategy with decay
-
-3. **Physical Constraint Module**
-   - Water balance constraints
-   - Reservoir release boundary constraints
-   - Operational cycle constraints
-   - Reservoir Capacity Boundary Constraints
-   - Non-negativity constraints
-
-4. **Multi-Objective Optimization**
-   - Power generation maximization
-   - Flood control optimization
-   - Environmental impact minimization
-
-## File Structure
-
-```
-├── wddlearning.py          # Main training module with LSTM-DQN framework
-├── wddinference_test.py    # Inference API for model deployment
-├── runwdd.py              # Example usage script
-├── reservoir.m            # MATLAB reservoir optimization model
-├── SARIMA/
-│   ├── Fun_SARIMA_Forecast.m    # SARIMA forecasting function
-│   ├── SARMA_Order_Select.m     # Automatic parameter selection
-│   └── creatSARIMA.m           # SARIMA model creation
-└── README.md              # Project documentation
+```text
+.
+|-- Learning/
+|   |-- wddlearning.py          # LSTM + DQN training script with physical-constraint loss
+|   |-- wddinference_test.py    # Lightweight inference API for saved PyTorch model artifacts
+|   `-- runwdd.py              # Example inference script
+|-- Optimization/
+|   `-- reservoir.m            # MATLAB cascade reservoir optimization problem definition
+|-- Simulation/
+|   |-- Fun_SARIMA_Forecast.m  # SARIMA forecasting workflow
+|   |-- SARMA_Order_Select.m   # SARIMA order selection using AIC/BIC
+|   `-- creatSARIMA.m          # SARIMA model construction helper
+`-- README.md
 ```
 
-## Installation and Dependencies
+## Component Details
 
-### Python Dependencies
-```bash
-pip install torch numpy pandas matplotlib scikit-learn joblib
+### 1. Learning Module
+
+The learning module is implemented in Python under `Learning/`.
+
+Main script:
+
+```text
+Learning/wddlearning.py
 ```
 
-### MATLAB Requirements
-- MATLAB R2016b or later
-- Econometrics Toolbox
-- Statistics and Machine Learning Toolbox
+It includes:
 
-## Usage
+- data loading and normalization with `pandas` and `MinMaxScaler`;
+- sequence construction with a default window length of 3 time steps;
+- an LSTM predictor (`LSTMPredictor`);
+- a DQN agent (`DQNAgent`) for dynamic weighting between prediction loss and physical loss;
+- physical-constraint loss terms, including non-negativity, water balance, discharge bounds, operation-cycle smoothness, and storage-capacity bounds;
+- final evaluation metrics: MAE, MSE, RMSE, R2, NSE, KGE, and WBI;
+- model/scaler output files:
+  - `model_best.pt`
+  - `scaler_input.pkl`
+  - `scaler_target.pkl`
+  - `Complete_Prediction_Results_Training_and_Test.xlsx`
 
-### 1. Model Training
+Inference scripts:
 
-```python
-from wddlearning import main
-
-# Execute training with default parameters
-main()
+```text
+Learning/wddinference_test.py
+Learning/runwdd.py
 ```
 
-### 2. Model Inference
+`wddinference_test.py` defines `ModelAPI`, which loads the trained model and scalers and supports:
 
-```python
-from wddinference_test import ModelAPI
-import pandas as pd
+- `predict_next_step(df)` for one-step prediction;
+- `rolling_predict(df, steps=12)` for rolling multi-step prediction.
 
-# Initialize API
-api = ModelAPI()
+Before running the learning scripts, update the local data paths, column names, and reservoir physical parameters to match your dataset.
 
-# Load your data
-df = pd.read_excel("your_data.xlsx")
+### 2. Optimization Module
 
-# Single-step prediction
-next_prediction = api.predict_next_step(df)
+The optimization module is implemented in MATLAB:
 
-# Multi-step rolling prediction
-future_predictions = api.rolling_predict(df, steps=12)
+```text
+Optimization/reservoir.m
 ```
 
-### 3. SARIMA Forecasting (MATLAB)
+`reservoir.m` defines a cascade reservoir scheduling problem class derived from `PRORES`. It includes:
+
+- monthly water-level decision variables for four cascade reservoirs;
+- reservoir-specific upper and lower water-level bounds;
+- initial water levels;
+- discharge constraints;
+- power output constraints;
+- monthly inflow loading;
+- objective calculation for:
+  - hydropower generation,
+  - flood-control and water-supply regulation,
+  - ecological/environmental operation indicators;
+- constraint violation calculation for water level, discharge, and power output.
+
+This file depends on the external optimization framework that provides the `PRORES` base class and related runtime environment.
+
+### 3. Simulation Module
+
+The simulation module is implemented in MATLAB under `Simulation/`.
+
+The main entry point is:
+
+```text
+Simulation/Fun_SARIMA_Forecast.m
+```
+
+It performs:
+
+- automatic differencing-order testing using ADF and KPSS tests;
+- ACF/PACF diagnostics;
+- SARIMA order selection through `SARMA_Order_Select.m`;
+- model creation through `creatSARIMA.m`;
+- parameter estimation;
+- residual diagnostics;
+- multi-step forecasting;
+- 95% confidence interval calculation.
+
+Example MATLAB usage:
 
 ```matlab
-% Load data and perform SARIMA forecasting
-data = readtable('your_data.xlsx');
+addpath(genpath('Simulation'));
+
+data = readmatrix('your_monthly_series.xlsx');
+step = 12;
+max_ar = 3;
+max_ma = 3;
+max_sar = 2;
+max_sma = 2;
+season = 12;
+figflag = 'on';
+
+[forecast, lower, upper] = Fun_SARIMA_Forecast( ...
+    data, step, max_ar, max_ma, max_sar, max_sma, season, figflag);
+```
+
+## Requirements
+
+### Python
+
+Recommended Python dependencies:
+
+```bash
+pip install numpy pandas matplotlib scikit-learn torch joblib openpyxl
+```
+
+The learning module was written for CPU execution by default. CUDA can be enabled in the inference API if a compatible PyTorch/CUDA environment is available.
+
+### MATLAB
+
+Recommended MATLAB environment:
+
+- MATLAB R2016b to R2020, based on the compatibility branches in the SARIMA script;
+- Econometrics Toolbox;
+- Statistics and Machine Learning Toolbox;
+- the external optimization framework that defines `PRORES`, if running `Optimization/reservoir.m`.
+
+## Basic Usage
+
+### Train the Learning Model
+
+```bash
+cd Learning
+python wddlearning.py
+```
+
+Before training, check these items in `wddlearning.py`:
+
+- `filepath`: path to the training Excel file;
+- `input_features`: input column names;
+- `target_feature`: prediction target column;
+- physical parameters used by `physical_constraint_loss`, such as discharge and storage bounds.
+
+### Run Inference
+
+After training produces `model_best.pt`, `scaler_input.pkl`, and `scaler_target.pkl`, use:
+
+```python
+import pandas as pd
+from wddinference_test import ModelAPI
+
+api = ModelAPI()
+df = pd.read_excel("your_inference_data.xlsx")
+
+next_value = api.predict_next_step(df)
+future_values = api.rolling_predict(df, steps=12)
+```
+
+Make sure the inference DataFrame contains the columns listed in `INPUT_FEATURES` in `wddinference_test.py`.
+
+### Run SARIMA Forecasting
+
+```matlab
+addpath(genpath('Simulation'));
+data = readmatrix('your_monthly_series.xlsx');
 [forecast, lower, upper] = Fun_SARIMA_Forecast(data, 12, 3, 3, 2, 2, 12, 'on');
 ```
 
-## Model Configuration
+### Use the Optimization Problem
 
-### LSTM Parameters
-- **Input Size**: Number of input features (default: 2)
-- **Hidden Size**: LSTM hidden dimension (default: 128)
-- **Number of Layers**: LSTM depth (default: 2)
-- **Dropout Rate**: Regularization parameter (default: 0.2)
-- **Sequence Length**: Historical window size (default: 3)
+Place `Optimization/reservoir.m` in the MATLAB path together with the required optimization framework and input data file, then instantiate or call it through the framework that provides `PRORES`.
 
-### DQN Parameters
-- **State Dimension**: 5 (episode progress, losses, selected weight)
-- **Action Dimension**: 11 (weight values from 0.0 to 1.0)
-- **Learning Rate**: 1e-3
-- **Gamma**: 0.99 (discount factor)
-- **Epsilon Decay**: 0.995
+`reservoir.m` currently expects the monthly runoff data file:
 
-### Physical Constraints
-- **Minimum Discharge**: [900, 1260, 1200, 1200] m³/s
-- **Maximum Discharge**: [35800, 38800, 40888, 41200] m³/s
-- **Water Level Bounds**: Reservoir-specific operational ranges
-- **Power Generation Capacity**: [10200, 16000, 12600, 6000] MW
+```text
+Runoff-Wudongde-Monthly-Data-Standardized.xlsx
+```
 
-## Performance Metrics
+Update the file name, year selection, and data-column mapping as needed for your experiment.
 
-The framework evaluates performance using multiple metrics:
+## Notes for Reproducibility
 
-- **Prediction Accuracy**: MAE, MSE, RMSE, R²
-- **Hydrological Metrics**: NSE (Nash-Sutcliffe Efficiency), KGE (Kling-Gupta Efficiency)
-- **Water Balance Index**: WBI for conservation assessment
-- **Physical Constraint Satisfaction**: Violation penalties
+- Random seeds are set in the Python training script for `numpy`, `torch`, and `random`.
+- Local absolute data paths in the scripts are placeholders from the original experiment environment and should be replaced before reuse.
+- The repository does not include confidential datasets, engineering parameters, trained weights, or full experiment outputs.
+- Some variable names and comments in the original scripts may reflect localized data-column names. Align all column names consistently between training and inference before running experiments.
 
-## Research Applications
+## Research Scope
 
-1. **Reservoir Operation Optimization**
-2. **Flood Control Management**
-3. **Hydropower Generation Planning**
-4. **Environmental Impact Assessment**
-5. **Climate Change Adaptation Studies**
+This framework supports experiments related to:
 
-## Technical Innovations
-
-- **Adaptive Loss Weighting**: DQN-based dynamic adjustment of LSTM and physical loss components
-- **Multi-Scale Temporal Modeling**: Integration of short-term LSTM predictions with long-term SARIMA forecasts
-- **Constraint-Aware Learning**: Physics-informed neural network architecture
-- **Real-time Deployment**: Optimized inference pipeline for operational systems
-
-## Future Enhancements
-
-- Integration of weather forecasting data
-- Uncertainty quantification methods
-- Advanced reinforcement learning algorithms
-- Real-time adaptive control systems
-
+- cascade reservoir operation;
+- hydropower generation scheduling;
+- flood-control and water-supply coordination;
+- physically constrained time-series prediction;
+- SARIMA-based runoff or inflow forecasting;
+- comparison between learning-based prediction, statistical forecasting, and optimization-based scheduling.
 
 ## Confidentiality Notice
 
-**Due to engineering parameter confidentiality and data security considerations, only core algorithmic components are provided in this repository. For access to complete source code, datasets, and detailed technical documentation, please contact: zyzhu1128@163.com**
+Due to engineering-parameter confidentiality and data-security considerations, only the core algorithmic components are provided in this repository. For access to complete source code, datasets, and detailed technical documentation, please contact:
+
+```text
+zyzhu1128@163.com
+```

@@ -145,8 +145,8 @@ def physical_constraint_loss(prediction, sequence, next_inflow):
     
     # Constraint 3: Reservoir Release Boundary
     # Define upper and lower boundaries for discharge (set according to actual reservoir parameters)
-    Q_low = 900.0   # Minimum discharge (m³/s)
-    Q_up = 35800.0  # Maximum discharge (m³/s)
+    Q_low = Q_wdd_low   # Minimum discharge (m³/s)
+    Q_up = Q_wdd_up  # Maximum discharge (m³/s)
     
     # Calculate boundary constraint loss
     # Penalty when predicted value is below lower boundary
@@ -172,15 +172,15 @@ def physical_constraint_loss(prediction, sequence, next_inflow):
     # Calculate reservoir volume based on water balance equation: V(t) = V(t-1) + (Q_in - Q_out) * Δt
     # Assume time step Δt = 1 (monthly), initial volume V0 (can be set based on historical data)
     dt = 1.0  # Time step (monthly)
-    V0 = 50000.0  # Initial reservoir volume (million m³), set according to actual reservoir parameters
+    V0 = V_wdd_0  # Initial reservoir volume (million m³), set according to actual reservoir parameters
     
     # Calculate predicted reservoir volume
     # V(t) = V(t-1) + (Q_in(t-1) - Q_out(t-1)) * Δt
     V_predicted = V0 + (next_inflow - prediction.squeeze()) * dt
     
     # Define reservoir capacity boundaries (set according to actual reservoir parameters)
-    V_low = 20000.0   # Minimum active storage (million m³)
-    V_up = 80000.0    # Maximum active storage (million m³)
+    V_low = V_wdd_low   # Minimum active storage (million m³)
+    V_up = V_wdd_up    # Maximum active storage (million m³)
     
     # Calculate capacity constraint loss function g(V)
     # g(V) = (V - V_up)² if V > V_up
@@ -192,7 +192,7 @@ def physical_constraint_loss(prediction, sequence, next_inflow):
     capacity_loss = capacity_penalty_upper + capacity_penalty_lower
     
     # Total physical loss (weighted combination of all constraints)
-    total_physical_loss = balance_loss + 0.1 * boundary_loss + 0.05 * cycle_loss + 0.08 * capacity_loss
+    total_physical_loss = balance_loss +  boundary_loss +  cycle_loss +  capacity_loss
     
     return total_physical_loss
 
@@ -374,8 +374,8 @@ def train_lstm_with_dqn(lstm_model, dqn_agent, X_train, y_train, next_inflows_tr
             # Fix weight to 1, completely remove physical mechanism (LSTM loss weight=1, physical loss weight=0)
             state_tensor = state.unsqueeze(0)
             action = dqn_agent.select_action(state_tensor)
-            # weight = possible_weights[action.item()]
-            weight = torch.tensor(1.0)
+            weight = possible_weights[action.item()]
+            
             weights_in_episode.append(weight.item())  # Record weight
             
             # Forward propagation
