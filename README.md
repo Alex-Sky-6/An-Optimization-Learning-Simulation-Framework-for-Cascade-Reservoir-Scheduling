@@ -4,8 +4,8 @@
 
 This repository contains the core algorithm files for an optimization-learning-simulation framework for cascade reservoir scheduling. The framework is organized around three complementary components:
 
-- **Learning**: a PyTorch LSTM predictor with DQN-based adaptive loss weighting and physical-constraint loss terms.
 - **Optimization**: a MATLAB cascade-reservoir scheduling problem definition for multi-objective reservoir operation.
+- **Learning**: a PyTorch LSTM predictor with DQN-based adaptive loss weighting and physical-constraint loss terms.
 - **Simulation**: MATLAB SARIMA utilities for hydrological time-series forecasting and comparison.
 
 The current public repository provides the main algorithmic scripts only. Engineering datasets, trained model artifacts, and some local framework dependencies are not included because of data security and engineering-parameter confidentiality.
@@ -14,12 +14,12 @@ The current public repository provides the main algorithmic scripts only. Engine
 
 ```text
 .
+|-- Optimization/
+|   `-- reservoir.m            # MATLAB cascade reservoir optimization problem definition
 |-- Learning/
 |   |-- wddlearning.py          # LSTM + DQN training script with physical-constraint loss
 |   |-- wddinference_test.py    # Lightweight inference API for saved PyTorch model artifacts
 |   `-- runwdd.py              # Example inference script
-|-- Optimization/
-|   `-- reservoir.m            # MATLAB cascade reservoir optimization problem definition
 |-- Simulation/
 |   |-- Fun_SARIMA_Forecast.m  # SARIMA forecasting workflow
 |   |-- SARMA_Order_Select.m   # SARIMA order selection using AIC/BIC
@@ -29,7 +29,31 @@ The current public repository provides the main algorithmic scripts only. Engine
 
 ## Component Details
 
-### 1. Learning Module
+### 1. Optimization Module
+
+The optimization module is implemented in MATLAB:
+
+```text
+Optimization/reservoir.m
+```
+
+`reservoir.m` defines a cascade reservoir scheduling problem class derived from `PRORES`. It includes:
+
+- monthly water-level decision variables for four cascade reservoirs;
+- reservoir-specific upper and lower water-level bounds;
+- initial water levels;
+- discharge constraints;
+- power output constraints;
+- monthly inflow loading;
+- objective calculation for:
+  - hydropower generation,
+  - flood-control and water-supply regulation,
+  - ecological/environmental operation indicators;
+- constraint violation calculation for water level, discharge, and power output.
+
+This file depends on the external optimization framework that provides the `PRORES` base class and related runtime environment.
+
+### 2. Learning Module
 
 The learning module is implemented in Python under `Learning/`.
 
@@ -66,30 +90,6 @@ Learning/runwdd.py
 - `rolling_predict(df, steps=12)` for rolling multi-step prediction.
 
 Before running the learning scripts, update the local data paths, column names, and reservoir physical parameters to match your dataset.
-
-### 2. Optimization Module
-
-The optimization module is implemented in MATLAB:
-
-```text
-Optimization/reservoir.m
-```
-
-`reservoir.m` defines a cascade reservoir scheduling problem class derived from `PRORES`. It includes:
-
-- monthly water-level decision variables for four cascade reservoirs;
-- reservoir-specific upper and lower water-level bounds;
-- initial water levels;
-- discharge constraints;
-- power output constraints;
-- monthly inflow loading;
-- objective calculation for:
-  - hydropower generation,
-  - flood-control and water-supply regulation,
-  - ecological/environmental operation indicators;
-- constraint violation calculation for water level, discharge, and power output.
-
-This file depends on the external optimization framework that provides the `PRORES` base class and related runtime environment.
 
 ### 3. Simulation Module
 
@@ -153,6 +153,18 @@ Recommended MATLAB environment:
 
 ## Basic Usage
 
+### Use the Optimization Problem
+
+Place `Optimization/reservoir.m` in the MATLAB path together with the required optimization framework and input data file, then instantiate or call it through the framework that provides `PRORES`.
+
+`reservoir.m` currently expects the monthly runoff data file:
+
+```text
+Runoff-Wudongde-Monthly-Data-Standardized.xlsx
+```
+
+Update the file name, year selection, and data-column mapping as needed for your experiment.
+
 ### Train the Learning Model
 
 ```bash
@@ -191,18 +203,6 @@ addpath(genpath('Simulation'));
 data = readmatrix('your_monthly_series.xlsx');
 [forecast, lower, upper] = Fun_SARIMA_Forecast(data, 12, 3, 3, 2, 2, 12, 'on');
 ```
-
-### Use the Optimization Problem
-
-Place `Optimization/reservoir.m` in the MATLAB path together with the required optimization framework and input data file, then instantiate or call it through the framework that provides `PRORES`.
-
-`reservoir.m` currently expects the monthly runoff data file:
-
-```text
-Runoff-Wudongde-Monthly-Data-Standardized.xlsx
-```
-
-Update the file name, year selection, and data-column mapping as needed for your experiment.
 
 ## Notes for Reproducibility
 
